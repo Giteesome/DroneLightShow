@@ -1,0 +1,79 @@
+# pattern_manager.py
+# uploaded by Giteesome, 2025-11-29
+# A Mimic Program Manager for Drone-Light-Show Items , beta v0.9
+# tested pass on Windows 11 platform
+# work with drone-light-show-main.py and other code pieces in the bundle
+
+import importlib
+import os
+import sys
+
+
+class PatternManager:
+    """图案管理器"""
+
+    def __init__(self, patterns_dir="patterns"):
+        self.patterns_dir = patterns_dir
+        self.available_patterns = []
+        self.current_pattern = None
+        self.current_pattern_index = -1
+
+    def discover_patterns(self):
+        """发现可用的图案模块"""
+        self.available_patterns = []
+
+        # 查找patterns目录下的所有图案文件
+        if os.path.exists(self.patterns_dir):
+            for filename in os.listdir(self.patterns_dir):
+                if filename.startswith("pattern_") and filename.endswith(".py"):
+                    pattern_name = filename[:-3]  # 移除.py
+                    self.available_patterns.append(pattern_name)
+
+        print(f"发现 {len(self.available_patterns)} 个图案:")
+        for pattern in self.available_patterns:
+            print(f"  - {pattern}")
+
+    def load_pattern(self, pattern_name, width, height, debug_mode=False):
+        """加载指定图案"""
+        try:
+            # 动态导入模块 - 使用绝对导入
+            module = importlib.import_module(f"{self.patterns_dir}.{pattern_name}")
+
+            # 查找图案类（类名与文件名相同，但首字母大写）
+            class_name = ''.join(word.capitalize() for word in pattern_name.split('_'))
+
+            if hasattr(module, class_name):
+                pattern_class = getattr(module, class_name)
+            else:
+                # 如果找不到，尝试使用默认类名
+                print(f"警告: 在模块 {pattern_name} 中找不到类 {class_name}，尝试使用默认类名")
+                pattern_class = getattr(module, "Pattern")
+
+            # 创建图案实例
+            pattern_instance = pattern_class(width, height, debug_mode)
+            pattern_instance.initialize()
+
+            return pattern_instance
+
+        except Exception as e:
+            print(f"加载图案 {pattern_name} 失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def next_pattern(self, width, height, debug_mode=False):
+        """切换到下一个图案"""
+        if not self.available_patterns:
+            return None
+
+        self.current_pattern_index = (self.current_pattern_index + 1) % len(self.available_patterns)
+        pattern_name = self.available_patterns[self.current_pattern_index]
+
+        print(f"切换到图案: {pattern_name}")
+        self.current_pattern = self.load_pattern(pattern_name, width, height, debug_mode)
+
+        return self.current_pattern
+
+    def get_current_pattern(self):
+        """获取当前图案"""
+        return self.current_pattern
